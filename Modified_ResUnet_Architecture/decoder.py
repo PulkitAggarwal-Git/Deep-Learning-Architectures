@@ -37,16 +37,3 @@ class Decoder(nn.Module):
         output = self.final(output)
 
         return output
-    
-class ResUNET(nn.Module):
-    def __init__(self, device):
-        super().__init__()
-
-        self.encoder = Encoder().to(device)
-        self.decoder = Decoder().to(device)
-
-    def forward(self, x):
-        enc_output, skips = self.encoder(x)
-        dec_output = self.decoder(enc_output, skips)
-
-        return dec_output
