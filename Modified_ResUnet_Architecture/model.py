@@ -1,3 +1,6 @@
+# Paper Followed: Robust optic disc and cup segmentation with deep learning for glaucoma detection. Computerized Medical Imaging
+# and Graphics
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,7 +20,7 @@ class Model(nn.Module):
         dec_output = self.decoder(enc_output, skips)
 
         return dec_output
-    
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = Model(device).to(device)
 
