@@ -27,7 +27,7 @@ class Decoder(nn.Module):
         self.block3 = DecoderBlock(256, 64, 128)
         self.block4 = DecoderBlock(256, 64, 128)
 
-        self.final = nn.ConvTranspose2d(256, 3, kernel_size=2, stride=2)
+        self.final = nn.ConvTranspose2d(256, 3, 2, stride=2)
 
     def forward(self, enc_output, skips):
         output = self.block1(enc_output, skips.pop())
