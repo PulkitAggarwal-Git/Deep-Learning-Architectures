@@ -52,9 +52,9 @@ def cross_merge_fn(y: torch.Tensor, in_channel_first=True, out_channel_first=Tru
     CMF = CrossMergeF
     if y.is_cuda:
         with torch.cuda.device(y.device):
-            return CMF.apply(y, in_channel_first, out_channel_first, one_by_one, scans)
+            return CMF.apply(y, in_channel_first, out_channel_first, scans)
     else:
-        return CrossMergeF.apply(y, in_channel_first, out_channel_first, one_by_one, scans)
+        return CrossMergeF.apply(y, in_channel_first, out_channel_first, scans)
 
 class CrossMergeF(torch.autograd.Function):
     @staticmethod
@@ -81,20 +81,13 @@ class CrossMergeF(torch.autograd.Function):
         # out: (b, k, d, h, w)
         in_channel_first = ctx.in_channel_first
         out_channel_first = ctx.out_channel_first
-        one_by_one = ctx.one_by_one
         scans = ctx.scans
         B, C, H, W = ctx.shape
     
-        if not one_by_one:
-            if in_channel_first:
-                x = x.view(B, C, H, W)
-            else:
-                x = x.view(B, H, W, C)
+        if in_channel_first:
+            x = x.view(B, C, H, W)
         else:
-            if in_channel_first:
-                x = x.view(B, 4, C, H, W)
-            else:
-                x = x.view(B, H, W, 4, C)   
+            x = x.view(B, H, W, C)
                      
         _fn = cross_scan_fwd
         x = _fn(x, in_channel_first, out_channel_first, scans)
@@ -207,22 +200,16 @@ def selective_scan_fn(
 
 class CrossScanF(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x: torch.Tensor, in_channel_first=True, out_channel_first=True, one_by_one=False, scans=0):
+    def forward(ctx, x: torch.Tensor, in_channel_first=True, out_channel_first=True, scans=0):
         # x: (B, C, H, W) | (B, H, W, C) | (B, 4, C, H, W) | (B, H, W, 4, C)
         # y: (B, 4, C, H * W) | (B, H * W, 4, C)
         ctx.in_channel_first = in_channel_first
         ctx.out_channel_first = out_channel_first
-        ctx.one_by_one = one_by_one
         ctx.scans = scans
 
-        if one_by_one:
-            B, K, C, H, W = x.shape
-            if not in_channel_first:
-                B, H, W, K, C = x.shape
-        else:
-            B, C, H, W = x.shape
-            if not in_channel_first:
-                B, H, W, C = x.shape
+        B, C, H, W = x.shape
+        if not in_channel_first:
+            B, H, W, C = x.shape
         ctx.shape = (B, C, H, W)
 
         _fn = cross_scan_fwd
@@ -235,7 +222,6 @@ class CrossScanF(torch.autograd.Function):
         # out: (b, k, d, l)
         in_channel_first = ctx.in_channel_first
         out_channel_first = ctx.out_channel_first
-        one_by_one = ctx.one_by_one
         scans = ctx.scans
         B, C, H, W = ctx.shape
 
@@ -243,23 +229,20 @@ class CrossScanF(torch.autograd.Function):
         _fn = cross_merge_fwd
         y = _fn(ys, in_channel_first, out_channel_first, scans)
         
-        if one_by_one:
-            y = y.view(B, 4, -1, H, W) if in_channel_first else y.view(B, H, W, 4, -1)
-        else:
-            y = y.view(B, -1, H, W) if in_channel_first else y.view(B, H, W, -1)
+        y = y.view(B, -1, H, W) if in_channel_first else y.view(B, H, W, -1)
 
         return y, None, None, None, None
 
-def cross_scan_fn(x: torch.Tensor, in_channel_first=True, out_channel_first=True, one_by_one=False, scans=0, force_torch=False):
+def cross_scan_fn(x: torch.Tensor, in_channel_first=True, out_channel_first=True, scans=0, force_torch=False):
     # x: (B, C, H, W) | (B, H, W, C) | (B, 4, C, H, W) | (B, H, W, 4, C)
     # y: (B, 4, C, L) | (B, L, 4, C)
     # scans: 0: cross scan; 1 unidirectional; 2: bidirectional;
     CSF = CrossScanF
     if x.is_cuda:
         with torch.cuda.device(x.device):
-            return CSF.apply(x, in_channel_first, out_channel_first, one_by_one, scans)
+            return CSF.apply(x, in_channel_first, out_channel_first, scans)
     else:
-        return CrossScanF.apply(x, in_channel_first, out_channel_first, one_by_one, scans)
+        return CrossScanF.apply(x, in_channel_first, out_channel_first, scans)
 
 class Linear(nn.Linear):
     def __init__(self, *args, channel_first=False, groups=1, **kwargs):
